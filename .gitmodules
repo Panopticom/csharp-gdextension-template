@@ -1,0 +1,3 @@
+[submodule "git-submodules/godot-dotnet"]
+	path = git-submodules/godot-dotnet
+	url = https://github.com/raulsntos/godot-dotnet.git

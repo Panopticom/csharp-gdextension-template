@@ -1,0 +1,32 @@
+; my-project.gdextension
+;
+; Tells Godot how to find and load the AOT-compiled C# extension.
+; entry_symbol must match the EntryPoint attribute in EntryPoint.cs exactly.
+
+[configuration]
+
+entry_symbol = "init"
+compatibility_minimum = "4.2"
+reloadable = true
+
+[libraries]
+
+linux.debug.x86_64     = "res://addons/my-group/MyProject/bin/linux/libMyProject.x86_64.so"
+linux.release.x86_64   = "res://addons/my-group/MyProject/bin/linux/libMyProject.x86_64.so"
+linux.debug.arm64      = "res://addons/my-group/MyProject/bin/linux/libMyProject.arm64.so"
+linux.release.arm64    = "res://addons/my-group/MyProject/bin/linux/libMyProject.arm64.so"
+
+macos.debug.arm64      = "res://addons/my-group/MyProject/bin/macos/libMyProject.arm64.dylib"
+macos.release.arm64    = "res://addons/my-group/MyProject/bin/macos/libMyProject.arm64.dylib"
+macos.debug.x86_64     = "res://addons/my-group/MyProject/bin/macos/libMyProject.x86_64.dylib"
+macos.release.x86_64   = "res://addons/my-group/MyProject/bin/macos/libMyProject.x86_64.dylib"
+
+windows.debug.x86_64   = "res://addons/my-group/MyProject/bin/windows/MyProject.x86_64.dll"
+windows.release.x86_64 = "res://addons/my-group/MyProject/bin/windows/MyProject.x86_64.dll"
+
+[dependencies]
+
+; VC++ runtime DLLs — copied from the build machine's System32 by build_ext.ps1.
+; Bundled so exported games run on machines that don't have the redistributable installed.
+windows.debug.x86_64   = {"res://addons/my-group/MyProject/bin/windows/vcruntime140.dll" : "", "res://addons/my-group/MyProject/bin/windows/vcruntime140_1.dll" : ""}
+windows.release.x86_64 = {"res://addons/my-group/MyProject/bin/windows/vcruntime140.dll" : "", "res://addons/my-group/MyProject/bin/windows/vcruntime140_1.dll" : ""}

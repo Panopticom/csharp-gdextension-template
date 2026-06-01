@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://volumetest"]
+
+[node name="Main" type="Node" unique_id=1997869891]
+
+[node name="Label" type="Label" parent="." unique_id=1922071799]
+offset_right = 700.0
+offset_bottom = 40.0
+text = "Check the Godot Output panel for test results."

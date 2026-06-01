@@ -1,0 +1,10 @@
+Each platform that this extension has been built to support should have a folder
+in this directory containing its native code.
+
+  windows/   — my-project.x86_64.dll, vcruntime140.dll
+  linux/     — libmy-project.x86_64.so
+  macos/     — libmy-project.x86_64.dylib, libmy-project.arm64.dylib
+  ios/       — libmy-project.arm64.dylib
+  android/   — libmy-project.arm64.so, libmy-project.x86_64.so
+
+Folders are created automatically by `just build` when building for that platform.

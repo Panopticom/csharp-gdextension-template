@@ -1,0 +1,24 @@
+{
+  "profiles": {
+    "Run Game": {
+      "commandName": "Project",
+      "commandLineArgs": "run --debug",
+      "workingDirectory": "../"
+    },
+    "Run Editor Scene": {
+      "commandName": "Project",
+      "commandLineArgs": "run-editor-scene --debug",
+      "workingDirectory": "../"
+    },
+    "Release": {
+      "commandName": "Project",
+      "commandLineArgs": "build",
+      "workingDirectory": "../"
+    },
+    "Debug": {
+      "commandName": "Project",
+      "commandLineArgs": "build --debug",
+      "workingDirectory": "../"
+    }
+  }
+}

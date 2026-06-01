@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+       NativeAOT: emit a native shared library that Godot can dlopen().  Without these two flags,
+       dotnet publish produces a managed .dll that the GDExtension loader cannot use.
+    -->
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+
+    <!--
+      Suppress trim warnings from all of the code the dotnet compiler cannot know will be called by the godot engine
+    -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+
+    <!-- Required by Godot.SourceGenerators' ScriptPathAttributeGenerator. -->
+    <GodotProjectDir>$(MSBuildProjectDirectory)\..\godot-project\</GodotProjectDir>
+    <RootNamespace>MyProject</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Rooting: prevent the NativeAOT trimmer from deleting members that
+    Godot accesses via reflection (_Ready, _Process, exported properties).
+    Godot.Bindings emits DynamicDependency attributes for its own internals,
+    but we must also root our own assembly.
+  -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="MyProject" />
+    <!-- Exclude the unused generator project's source from compilation. -->
+    <Compile Remove="GodotBinding.Generator\**" />
+  </ItemGroup>
+
+  <!--
+    When building from Visual Studio (or dotnet build), run build.ps1 so
+    the NativeAOT publish + binary copy happen automatically.
+
+    The SkipBuildScript guard prevents recursion: build.ps1 passes
+    -p:SkipBuildScript=true to dotnet publish, so this target does not
+    re-fire during the publish invocation that build.ps1 itself triggers.
+  -->
+  <Target Name="PublishNativeAOT" AfterTargets="Build" Condition="'$(SkipBuildScript)' != 'true'">
+    <PropertyGroup>
+      <_BuildExtArgs Condition="'$(Configuration)' == 'Debug'"> --debug</_BuildExtArgs>
+    </PropertyGroup>
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\build&quot; -- build$(_BuildExtArgs)"
+          WorkingDirectory="$(MSBuildProjectDirectory)\.." />
+  </Target>
+
+  <ItemGroup>
+    <!--
+      Godot.Bindings — the generated Godot API (Node, GD, Variant, etc.)
+      built from extension_api.json by godot-dotnet's bindings generator.
+
+      This package does NOT exist on nuget.org. Build it locally first:
+        cd ~/godot-dotnet-src
+        ./build.sh -productBuild -pushNupkgsLocal ~/nuget-packages
+      bootstrap.sh handles this automatically.
+
+      Version "0.1.0-*" means "latest pre-release starting with 0.1.0".
+      Adjust if godot-dotnet builds a different version.
+    -->
+    <PackageReference Include="Godot.Bindings" Version="4.7.0-*" />
+
+    <!--
+      Godot.SourceGeneration — the Roslyn source generator that reads
+      [GodotClass], [BindMethod], [BindProperty], [BindSignal] at build
+      time and emits ClassDB registration code + virtual method trampolines.
+      Built locally by bootstrap.ps1 (package ID: Godot.SourceGeneration, not Godot.SourceGenerators).
+    -->
+    <PackageReference Include="Godot.SourceGeneration" Version="4.7.0-*" />
+
+  </ItemGroup>
+
+</Project>
