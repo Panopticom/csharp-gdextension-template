@@ -34,16 +34,18 @@ See [Limitations](#limitations) for the tradeoffs that come with ahead of time c
 
 | | Windows | macOS 12 | Linux |
 |---|---|---|---|
-| .NET SDK | 9.0+ | 9.0+ | 9.0+ |
+| .NET SDK | 10.0.403+ | 10.0.403+ | 10.0.403+ |
 | Native toolchain | VS Build Tools (MSVC) | Xcode Command Line Tools | clang, zlib, libstdc++ |
-| Godot | 4.2+ standard build | 4.2+ standard build | 4.2+ standard build |
+| Godot | 4.7+ standard build | 4.7+ standard build | 4.7+ standard build |
 | git | any | any | any |
 
 > **Use the standard (non-Mono) Godot build.** The standard build can still
 > load GDExtensions. The Mono build is only needed for Godot's *built-in* C#
 > scripting system, which is completely separate from this.
 
-> **Godot 4.2 is required** for the `reloadable = true` flag in the `.gdextension` file, which lets the editor hot-reload the extension after a build without restarting. If you need Godot 4.1 compatibility, remove `reloadable = true` from `godot-project/addons/<team>/<project>/<project>.gdextension` and set `compatibility_minimum = "4.1"`.
+> **Godot 4.7 is required** because the extension is compiled against the godot-dotnet bindings, which are generated from Godot 4.7's API (`git-submodules/godot-dotnet/gdextension/extension_api.json`). An older engine is missing APIs the bindings expect, so `compatibility_minimum` in `godot-project/addons/<team>/<project>/<project>.gdextension` matches the bindings' version. Update both together when you move the submodule to a new Godot release.
+
+> **Hot reload doesn't work yet.** `reloadable = true` is set so that on Windows Godot loads a `~<project>.x86_64.dll` copy, which lets `just build` overwrite the real binary while the editor is open. Actually reloading the extension isn't supported: NativeAOT libraries can't be unloaded, so godot-dotnet would be initialized a second time in the same process and close the editor with `GodotBridge has already been initialized`. `EntryPoint.Initialize` guards against this and returns `false` on a second load. Godot then reports `GDExtension initialization function 'init' returned an error`, and the extension's classes are missing until you restart the editor, which loads the new build.
 
 <details>
 <summary>Installing dependencies</summary>
@@ -140,7 +142,7 @@ var list = new List<Vector3>();
 
 Note that `SuppressTrimAnalysisWarnings` hides the [`IL3050`](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/warnings/il3050) warning that would normally catch both of these patterns at publish time — the build succeeds silently and the crash only surfaces at runtime in a Release build.
 
-**LINQ queries work; compiled expression trees are slower.** `System.Linq` (`Where`, `Select`, `OrderBy`, etc.) is fine — it compiles to static IL like any other code. `Expression<Func<T>>.Compile()` cannot JIT-compile under NativeAOT, so .NET 9 falls back to an expression tree interpreter instead — correct, but slower. 
+**LINQ queries work; compiled expression trees are slower.** `System.Linq` (`Where`, `Select`, `OrderBy`, etc.) is fine — it compiles to static IL like any other code. `Expression<Func<T>>.Compile()` cannot JIT-compile under NativeAOT, so .NET falls back to an expression tree interpreter instead — correct, but slower. 
 
 **Cross compiling is more complicated.** No operating system can currently compile dotnet binaries for all supported platforms. NativeAOT requires the target platform's linker and CRT:
 
@@ -234,17 +236,19 @@ setx GODOT4 "C:\Program Files\Godot\Godot_v4.6.1-stable_win64.exe"
 
 ### Option B — Open in editor manually
 
-1. Open `godot-project/` in Godot 4.2+ (standard build)
+1. Open `godot-project/` in Godot 4.7+ (standard build)
 2. Press **F5**
 
 ### Expected output
 ```
-Extension initialized via godot-dotnet!
+loading MyProject GDExtension (Core)..
+loading MyProject GDExtension (Servers)..
+loading MyProject GDExtension (Scene)..
 [ExampleNode] _Ready called. Count = 0
 [ExampleNode] add(10) → Count = 10
-[ExampleNode] add(5)  → Count = 15
+[ExampleNode] add(5) → Count = 15
 [ExampleNode] reset() → Count = 0
-[VolumeTest] All assertions passed!
+[MyProjectTest] All assertions passed!
 ```
 
 ### GDScript naming — PascalCase, not snake_case
@@ -361,12 +365,12 @@ dotnet publish (NativeAOT, NativeLib=Shared)
     → emits binding trampolines, DynamicDependency attributes, and ClassDBExtensions.InitializeUserTypes()
     → EntryPoint.cs calls ClassDBExtensions.InitializeUserTypes(level) — all classes registered automatically
     → NativeAOT compiles everything to a single native .dll
-    → exports "volume_extension_init" as a plain C symbol
+    → exports "init" as a plain C symbol
                 │
                 ▼
 Godot startup
-  reads my-project.gdextension
-    → entry_symbol = "volume_extension_init"
+  reads <projectName>.gdextension
+    → entry_symbol = "init"
     → dlopen(<projectName>.dll)
     → calls EntryPoint.Initialize()
          → GodotBridge.Initialize() sets up proc-address table

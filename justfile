@@ -9,11 +9,11 @@ default:
 bootstrap:
     dotnet run --project build -- bootstrap
 
-# Release build — output: ./addons/panopticom/volume/bin/<os>/
+# Release build — output: ./godot-project/addons/<team>/<project>/bin/<os>/
 build:
     dotnet run --project build -- build
 
-# Debug build — output: ./addons/panopticom/volume/bin/<os>/ (includes .pdb)
+# Debug build — output: ./godot-project/addons/<team>/<project>/bin/<os>/ (includes .pdb)
 debug:
     dotnet run --project build -- build --debug
 

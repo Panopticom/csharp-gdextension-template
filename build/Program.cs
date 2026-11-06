@@ -679,6 +679,9 @@ static int Rename(string repoRoot, string[] args) {
     Console.WriteLine($"  Moved:   godot-project/addons/{oldTeam}/{oldProject}/");
     Console.WriteLine($"       →   godot-project/addons/{newTeam}/{newProject}/");
 
+    // Binaries built under the old name came along with the directory, and nothing would ever load or replace them.
+    CleanBinaryFiles(Path.Combine(newAddon, "bin"), $"godot-project/addons/{newTeam}/{newProject}/bin/  (binaries built under the old name)");
+
     // Remove the old team directory if it is now empty.
     string oldTeamDir = Path.Combine(addonsDir, oldTeam);
     if (Directory.Exists(oldTeamDir) && !Directory.EnumerateFileSystemEntries(oldTeamDir).Any()) {
@@ -694,6 +697,9 @@ static int Rename(string repoRoot, string[] args) {
         File.Move(oldGdext, newGdext);
         Console.WriteLine($"  Renamed: {oldProject}.gdextension  →  {newProject}.gdextension");
     }
+
+    // Godot keeps a resource's UID in a .uid file beside it, which has to follow the file so references by UID keep working.
+    MoveUidFile(oldGdext, newGdext);
 
     // ── Update paths inside the .gdextension file ──────────────────────────────
     if (File.Exists(newGdext)) {
@@ -807,8 +813,10 @@ static int Rename(string repoRoot, string[] args) {
             // Rename the file.
             string newGdFile = Path.Combine(autoloadDir, $"{newScriptName}.gd");
             File.WriteAllText(gdFile, gdUpdated);
-            if (newGdFile != gdFile)
+            if (newGdFile != gdFile) {
                 File.Move(gdFile, newGdFile);
+                MoveUidFile(gdFile, newGdFile);
+            }
 
             // Update the autoload registration in project.godot.
             if (File.Exists(godotProjectPath)) {
@@ -840,8 +848,8 @@ static int Rename(string repoRoot, string[] args) {
 
 static (string teamName, string projectName, string? godotPath) LoadConfig(string repoRoot) {
     string configPath = Path.Combine(repoRoot, "build", "build.config");
-    string teamName = "panopticom";
-    string projectName = "my-project";
+    string teamName = "my-group";
+    string projectName = "MyProject";
 
     if (File.Exists(configPath)) {
         foreach (string line in File.ReadAllLines(configPath)) {
@@ -989,6 +997,17 @@ static void CleanBinaryFiles(string binDir, string label) {
         Console.Error.WriteLine($"  Skipped:      {label}");
         Console.Error.WriteLine($"    Access denied — close Godot and run 'just clean' again.");
     }
+}
+
+/// <summary> Moves the .uid file Godot keeps beside a resource, if it has one, so the resource keeps its UID under its new name. </summary>
+static void MoveUidFile(string oldPath, string newPath) {
+    string oldUid = oldPath + ".uid";
+    string newUid = newPath + ".uid";
+    if (!File.Exists(oldUid) || oldUid == newUid)
+        return;
+
+    File.Move(oldUid, newUid, overwrite: true);
+    Console.WriteLine($"  Renamed: {Path.GetFileName(oldUid)}  →  {Path.GetFileName(newUid)}");
 }
 
 static void RemoveIfExists(string path, string label) {

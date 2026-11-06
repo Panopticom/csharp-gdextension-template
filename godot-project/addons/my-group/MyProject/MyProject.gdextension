@@ -1,12 +1,12 @@
-; my-project.gdextension
-;
 ; Tells Godot how to find and load the AOT-compiled C# extension.
 ; entry_symbol must match the EntryPoint attribute in EntryPoint.cs exactly.
 
 [configuration]
 
 entry_symbol = "init"
-compatibility_minimum = "4.2"
+; must be the Godot version the godot-dotnet bindings were generated from (gdextension/extension_api.json in the submodule),
+; since an older engine is missing APIs the bindings expect
+compatibility_minimum = "4.7"
 reloadable = true
 
 [libraries]

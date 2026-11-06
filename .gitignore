@@ -32,3 +32,7 @@ godot-project/export_presets.cfg
 
 # Compiled translation binaries (auto-generated from .csv source files)
 godot-project/*.translation
+
+# Copies Godot loads instead of the real binary for reloadable extensions on Windows, so a build can overwrite it
+# (e.g. ~Name.x86_64.dll, plus ~Name.x86_64.dll~RF1234.TMP if it was replaced while loaded)
+godot-project/addons/*/*/bin/*/~*
