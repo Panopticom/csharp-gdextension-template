@@ -81,21 +81,6 @@ static int Bootstrap(string repoRoot)
         }
     }
 
-    // ── Patch .csproj files ────────────────────────────────────────────────────
-    Info("\n==> Patching .csproj files in godot-dotnet to reduce unnecessary compiler warnings...");
-
-    string baseNoWarn = "RS1038;CA2263;CS8762;CS1573;IDE0161;IDE0040";
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.SourceGeneration", "Godot.SourceGeneration.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.Analyzers", "Godot.Analyzers.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.BindingsGenerator", "Godot.BindingsGenerator.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.UpgradeAssistant.Core", "Godot.UpgradeAssistant.Core.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.UpgradeAssistant.Providers", "Godot.UpgradeAssistant.Providers.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.Common.CodeAnalysis", "Godot.Common.CodeAnalysis.csproj"), baseNoWarn);
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.Bindings", "Godot.Bindings.csproj"),
-        baseNoWarn + ";CS8500;CS1591;IL2075;IL2090;IL2111;IL2026;IL3050");
-    PatchCsproj(repoRoot, Path.Combine(godotDotnetDir, "src", "Godot.EditorIntegration", "Godot.EditorIntegration.csproj"),
-        baseNoWarn + ";IL2111;IL2026;IL3050");
-
     // ── Patch global.json ─────────────────────────────────────────────────────
     // godot-dotnet's build scripts use Arcade, which reads tools.dotnet from global.json
     // and tries to install that exact SDK version into .dotnet/. After just reset that
@@ -116,22 +101,6 @@ static int Bootstrap(string repoRoot)
         else {
             Info("    Already patched: global.json");
         }
-    }
-
-    // ── Patch .editorconfig ────────────────────────────────────────────────────
-    string editorConfig = Path.Combine(godotDotnetDir, ".editorconfig");
-    const string editorConfigMarker = "Godot.UpgradeAssistant.Providers";
-    if (File.Exists(editorConfig) && !File.ReadAllText(editorConfig).Contains(editorConfigMarker))
-    {
-        File.AppendAllText(editorConfig,
-            "\n# IDE0040: Suppressed for UpgradeAssistant.Providers partial classes in CodeFixes.\n" +
-            "[src/Godot.UpgradeAssistant.Providers/**/*.cs]\n" +
-            "dotnet_diagnostic.IDE0040.severity = none\n");
-        Info("    Patched: .editorconfig (IDE0040 suppressed for Godot.UpgradeAssistant.Providers)");
-    }
-    else
-    {
-        Info("    Already patched: .editorconfig");
     }
 
     // ── Register local NuGet source ────────────────────────────────────────────
@@ -158,11 +127,15 @@ static int Bootstrap(string repoRoot)
         ? Path.Combine(godotDotnetDir, "build.cmd")
         : Path.Combine(godotDotnetDir, "build.sh");
 
+    // Arcade's build scripts pass -warnaserror to MSBuild by default, which turns every warning in
+    // godot-dotnet's own code into an error (and a TreatWarningsAsErrors property can't undo it).
+    // Turning that off lets the unmodified sources build; their warnings don't affect the packages.
+    // build.ps1 takes it as a [bool] (0), build.sh as 'true' or 'false'.
     string[] buildArgs = [
+        "-warnAsError", RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "0" : "false",
         "--productBuild",
         "--pushNupkgsLocal", nugetSource,
         "/p:GenerateGodotBindings=true",
-        "/p:TreatWarningsAsErrors=false",
     ];
 
     // Point Arcade's SDK installer at the system dotnet root so it finds the already-
@@ -931,40 +904,6 @@ static (string src, string dest, string subDir) GetBinaryNames(string rid, strin
         return ($"lib{projectName}.dylib", $"lib{projectName}.{archSuffix}.dylib", "macos");
 
     throw new PlatformNotSupportedException("Unsupported OS");
-}
-
-static void PatchCsproj(string repoRoot, string file, string noWarnList) {
-    string rel = Path.GetRelativePath(repoRoot, file);
-    if (!File.Exists(file)) {
-        Console.WriteLine($"    SKIP (not found): {rel}");
-        return;
-    }
-
-    string content = File.ReadAllText(file);
-    if (content.Contains("IDE0040")) {
-        Console.WriteLine($"    Already patched: {rel}");
-        return;
-    }
-
-    // Insert <NoWarn> after the first <PropertyGroup> opening tag.
-    string patched = Regex.Replace(
-        content,
-        "<PropertyGroup>",
-        $"<PropertyGroup>\n    <NoWarn>$(NoWarn);{noWarnList}</NoWarn>",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
-    // Retry a few times — on Windows, antivirus briefly locks freshly-checked-out files.
-    for (int attempt = 1; ; attempt++) {
-        try {
-            File.WriteAllText(file, patched);
-            break;
-        }
-        catch (IOException) when (attempt < 5) {
-            Thread.Sleep(500 * attempt);
-        }
-    }
-    Console.WriteLine($"    Patched: {rel}");
 }
 
 static void CleanBinaryFiles(string binDir, string label) {

@@ -195,9 +195,9 @@ dotnet run --project build -- bootstrap
 
 The bootstrap script:
 1. Clones `raulsntos/godot-dotnet` to `./git-submodules/godot-dotnet`
-2. Patches `.csproj` files in godot-dotnet to suppress spurious build warnings
+2. Points godot-dotnet's `global.json` at your installed .NET SDK
 3. Registers a local NuGet feed at `./nuget-packages`
-4. Runs `build.cmd --productBuild --pushNupkgsLocal` to build the godot-dotnet packages
+4. Runs `build.cmd -warnAsError 0 --productBuild --pushNupkgsLocal` to build the godot-dotnet packages
 5. Prompts for your Godot executable path and saves it to `build/build-private.config`
 
 Run `just build` afterwards to compile the extension.
@@ -288,22 +288,24 @@ dotnet run --project build -- clean
 
 ---
 
-## Known build issue: RS1038 and trim/AOT warnings
+## Known build issue: godot-dotnet warnings fail its build
 
-**Symptom:** The godot-dotnet `--productBuild` fails with errors like:
+**Symptom:** Building godot-dotnet with its own `build.cmd` / `build.sh` fails with errors like:
 ```
 error RS1038: ...
 error IL2111: ...
-error IDE0040: ...
+error CS1734: ...
+error NU1903: ...
 ```
 
-**Cause:** `--productBuild` enables `TreatWarningsAsErrors` globally. Several
-diagnostics in godot-dotnet's own source and generated bindings are warnings
-that become errors under this flag.
+**Cause:** godot-dotnet builds with Arcade, whose build scripts pass `-warnaserror` to MSBuild by
+default. Every warning in godot-dotnet's own source, generated bindings and package graph becomes
+an error. Setting the `TreatWarningsAsErrors` property doesn't undo that switch.
 
-**Fix (applied automatically by bootstrap):** The bootstrap script patches
-each affected `.csproj` file to add a `<NoWarn>` entry suppressing the
-diagnostics that are noise rather than real bugs.
+**Fix (applied automatically by bootstrap):** The bootstrap passes `-warnAsError 0` (`-warnAsError false`
+on Linux and macOS), so the unmodified godot-dotnet sources build and their warnings are printed instead.
+Nothing in the submodule is patched for this, so it stays identical to upstream. The warnings only affect
+godot-dotnet's own compilation, not your extension's build.
 
 ---
 
@@ -354,7 +356,7 @@ The failure is silent at publish time when `SuppressTrimAnalysisWarnings` is set
 
 ```
 dotnet run --project build -- bootstrap
-  └─ clones godot-dotnet → patches .csproj files → builds NuGet packages
+  └─ clones godot-dotnet → points its global.json at your SDK → builds NuGet packages
        └─ Godot.Bindings.*.nupkg          (Node, GD, Variant, ...)
           Godot.SourceGeneration.*.nupkg  (Roslyn source generator)
                 │

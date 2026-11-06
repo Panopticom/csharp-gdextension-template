@@ -5,7 +5,7 @@
 default:
     @just --list
 
-# First-time setup: clone godot-dotnet, patch csproj files, build NuGet packages
+# First-time setup: clone godot-dotnet, build its NuGet packages, register the local feed
 bootstrap:
     dotnet run --project build -- bootstrap
 
